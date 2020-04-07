@@ -2,11 +2,35 @@ const express = require('express');
 const router = express.Router();
 const Vocab = require('../models/Vocab');
 
+// special update
+router.get('/special', (req, res) => {
+    // let promisedList = [];
+    // Vocab.find()
+    //     .then(data => {
+    //         data.forEach((word) => {
+    //             word.eng_audio = '21/' + word.eng_audio;
+    //             word.eng_text = word.eng_text.substr(3);
+    //             word.save();
+    //             promisedList.push(word);
+    //         })
+    //         Promise.all(promisedList)
+    //             .then(result => {
+    //                 res.json(result);
+    //             })
+    //             .catch(err => {
+    //                 res.json({status: 'error', message: err.message});
+    //             })
+    //     })
+    //     .catch(err => {
+    //         res.json({status: 'outer error', message: err.message});
+    //     })
+})
+
 // get all vocab
 router.get('/', (req, res) => {
     console.log('getting vocab entries');
     console.log(req.query);
-    let limit = 20;
+    let limit = 40;
     let skip = 0;
     let pageNumber = 1;
     let filter = {};
@@ -32,6 +56,9 @@ router.get('/', (req, res) => {
         } else if (req.query.searchTarget === 'dialect') {
             filter.dialect = { $regex: searchText };
         }
+    }
+    if (req.query.excludeTag) {
+        filter.tags = {"$ne": req.query.excludeTag};
     }
     console.log(filter);
     Vocab.find(filter)
