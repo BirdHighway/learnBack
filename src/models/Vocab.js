@@ -33,6 +33,11 @@ const WordSchema = new Schema({
     a_word_audio: {type: String, default: '', trim: true}
 })
 
+const Membership = new Schema({
+    playlist_id: {type: String, default: '', trim: true},
+    playlist_name: {type: String, default: '', trim: true}
+})
+
 
 const VocabSchema = new Schema({
     type: {type: String, default: '', trim: true},
@@ -44,7 +49,7 @@ const VocabSchema = new Schema({
     dialect: {type: String, default: '', trim: true},
     source: {type: String, default: '', trim: true},
     tags: [String],
-    data_noun: NounSchema,
+    memberships: [Membership],
     data_verb: VerbSchema,
     data_adj: AdjSchema,
     data_other: WordSchema

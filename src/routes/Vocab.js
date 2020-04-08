@@ -60,6 +60,11 @@ router.get('/', (req, res) => {
     if (req.query.excludeTag) {
         filter.tags = {"$ne": req.query.excludeTag};
     }
+    if (req.query.playlist) {
+        filter.memberships = {
+            $elemMatch: { 'playlist_id': req.query.playlist}
+        }
+    }
     console.log(filter);
     Vocab.find(filter)
         .limit(limit)
@@ -91,7 +96,7 @@ router.get('/', (req, res) => {
 // update vocab
 router.patch('/', (req, res) => {
     console.log('updating vocab obj with _id: ' + req.body._id);
-    Vocab.findByIdAndUpdate(req.body._id, req.body)
+    Vocab.findByIdAndUpdate(req.body._id, req.body, {new: true})
         .then(word => {
             res.json({status: 'success', data: word})
         })
@@ -99,6 +104,175 @@ router.patch('/', (req, res) => {
             res.json({status: 'failure', data: err.message})
         })
 })
+
+// bulk playlist membership update
+router.post('/playlists', (req, res) => {
+    console.log('bulk playlist update');
+
+    let pId = req.body.playlist_id;
+    let pName = req.body.playlist_name;
+    let additions = req.body.additions;
+    let removals = req.body.removals;
+
+    let promisedList = [];
+
+    if (additions && additions.length > 0) {
+        let a = Vocab.updateMany({
+            '_id': {$in: additions}
+        },
+        {
+            $push: {memberships: {playlist_id: pId, playlist_name: pName}}
+        },
+        {new: true})
+        promisedList.push(a);
+    }
+    if (removals && removals.length > 0) {
+        let b = Vocab.updateMany({
+            '_id': {$in: removals}
+        },
+        {
+            $pull: {memberships: {playlist_id: pId}}
+        },
+        {new: true})
+        promisedList.push(b);
+    }
+    Promise.all(promisedList)
+        .then(data => {
+            res.json({
+                status: "success",
+                data: data
+            })
+        })
+        .catch(err => {
+            res.json({
+                status: "failure",
+                data: err.message
+            })
+        })
+})
+
+// add or remove from playlist
+router.patch('/playlists', (req, res) => {
+    let vId = req.body.vocab_id[0];
+    let pId = req.body.playlist_id;
+    let action = req.body.action;
+    console.log('action: ' + action);
+    console.log('vocab_id: ' + vId);
+    console.log('playlist_id: ' + pId);
+    if (action === 'add') {
+        let pName = req.body.playlist_name;
+        Vocab.findOneAndUpdate({_id: vId},
+            {$push: {memberships: {playlist_id: pId, playlist_name: pName}}}, {new: true})
+            .then(doc => {
+                console.log(doc);
+                res.json({
+                    status: "success",
+                    data: doc
+                })
+            })
+            .catch(err => {
+                res.json({
+                    status: "failure",
+                    data: err.message
+                })
+            })
+    } else {
+        Vocab.findOneAndUpdate({_id: vId},
+            {$pull: {memberships: {playlist_id: pId}}}, {new: true})
+            .then(doc => {
+                console.log(doc);
+                res.json({
+                    status: "success",
+                    data: doc
+                })
+            })
+            .catch(err => {
+                res.json({
+                    status: "failure",
+                    data: err.message
+                })
+            })
+    }
+
+})
+
+// add to playlist
+// router.post('/playlists/:id', (req, res) => {
+//     console.log('adding playlist to vocab with _id: ' + req.params.id);
+//     let newPlaylist = {
+//         playlist_id: req.body.playlist_id,
+//         playlist_name: req.body.playlist_name
+//     }
+//     console.log(newPlaylist);
+//     Vocab.findById(req.params.id)
+//         .then(doc => {
+//             doc.memberships.push(newPlaylist);
+//             doc.save()
+//                 .then(updatedData => {
+//                     res.json({
+//                         status: 'success',
+//                         data: updatedData
+//                     })
+//                 })
+//                 .catch(err => {
+//                     res.json({
+//                         status: 'failure',
+//                         data: err.message
+//                     })
+//                 })
+//         })
+//         .catch(err => {
+//             res.json({
+//                 status: 'failure',
+//                 data: err.message
+//             })
+//         })
+// })
+
+// add to playlist
+// router.post('/playlists/:id', (req, res) => {
+//     console.log('adding playlist to vocab with _id:' + req.params.id);
+//     let playlist = {
+//         playlist_id: req.body.playlist_id,
+//         playlist_name: req.body.playlist_name
+//     }
+//     console.log('playlist: ');
+//     console.log(playlist);
+//     Vocab.findByIdAndUpdate(
+//         req.params._id, 
+//         {$push: {playlists: {playlist_id: req.body.playlist_id,
+//             playlist_name: req.body.playlist_name}}}
+//         ).then(word => {
+//             res.json({
+//                 status: 'success',
+//                 data: word
+//             })
+//         })
+//         .catch(err => {
+//             res.json({
+//                 status: 'failure',
+//                 data: err.message
+//             })
+//         })
+// })
+
+// remove from playlist
+// router.delete('/playlists/:id', (req, res) => {
+//     console.log('add vocab obj to playlist with _id: ' + req.params.id);
+//     Vocab.findByIdAndUpdate(req.body._id, { $push: { "playlists": req.params.id}}, {new: true})
+//         .then(word => {
+//             res.json({
+//                 status: 'success',
+//                 data: word
+//             })
+//         })
+//         .catch(err => {
+//             res.json({
+//                 status: 'failure',
+//                 data: err.message
+//             })
+//         })
+// })
 
 // new vocab word
 router.post('/', (req, res) => {
@@ -111,6 +285,23 @@ router.post('/', (req, res) => {
         })
         .catch(err => {
             res.json({status: 'failure', data: err.message})
+        })
+})
+
+// delete word
+router.delete('/id/:id', (req, res) => {
+    Vocab.findByIdAndDelete(req.params.id)
+        .then(docs => {
+            res.json({
+                status: 'success',
+                data: docs
+            })
+        })
+        .catch(err => {
+            res.json({
+                status: 'failure',
+                data: err
+            })
         })
 })
 

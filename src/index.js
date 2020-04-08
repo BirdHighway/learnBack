@@ -14,6 +14,10 @@ app.use(express.static('src/audio'));
 const vocabRoutes = require('./routes/Vocab');
 app.use('/vocab', vocabRoutes);
 
+// playlist entries
+const playlistRoutes = require('./routes/Playlist');
+app.use('/playlist', playlistRoutes);
+
 // import other routes
 // const nounRoutes = require('./routes/Nouns');
 // app.use('/nouns', nounRoutes);
