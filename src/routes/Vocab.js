@@ -34,6 +34,9 @@ router.get('/', (req, res) => {
     let skip = 0;
     let pageNumber = 1;
     let filter = {};
+    if (req.query.limit ) {
+        limit = parseInt(req.query.limit);
+    }
     if (req.query.page && req.query.page > 0) {
         pageNumber = req.query.page;
         skip = (req.query.page - 1) * limit;
