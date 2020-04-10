@@ -33,7 +33,13 @@ router.get('/', (req, res) => {
     let limit = 40;
     let skip = 0;
     let pageNumber = 1;
-    let filter = {};
+    let filter;
+    if (req.query.playlist) {
+        filter = {};
+    } else {
+        filter = {"memberships.playlist_name": {"$ne" : "Hidden"}};
+    }
+
     if (req.query.limit ) {
         limit = parseInt(req.query.limit);
     }
@@ -64,9 +70,7 @@ router.get('/', (req, res) => {
         filter.tags = {"$ne": req.query.excludeTag};
     }
     if (req.query.playlist) {
-        filter.memberships = {
-            $elemMatch: { 'playlist_id': req.query.playlist}
-        }
+        filter.memberships = {$elemMatch: {'playlist_id': req.query.playlist}}
     }
     console.log(filter);
     Vocab.find(filter)

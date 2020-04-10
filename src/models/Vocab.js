@@ -30,7 +30,11 @@ const VerbSchema = new Schema({
 
 const WordSchema = new Schema({
     a_word_text: {type: String, default: '', trim: true},
-    a_word_audio: {type: String, default: '', trim: true}
+    a_word_audio: {type: String, default: '', trim: true},
+    a_word_text_2: {type: String, default: '', trim: true},
+    a_word_audio_2: {type: String, default: '', trim: true},
+    a_word_text_3: {type: String, default: '', trim: true},
+    a_word_audio_3: {type: String, default: '', trim: true}
 })
 
 const Membership = new Schema({
