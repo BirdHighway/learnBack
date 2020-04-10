@@ -50,6 +50,7 @@ const VocabSchema = new Schema({
     source: {type: String, default: '', trim: true},
     tags: [String],
     memberships: [Membership],
+    data_noun: NounSchema,
     data_verb: VerbSchema,
     data_adj: AdjSchema,
     data_other: WordSchema
