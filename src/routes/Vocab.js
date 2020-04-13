@@ -4,6 +4,39 @@ const Vocab = require('../models/Vocab');
 
 // special update
 router.get('/special', (req, res) => {
+    // let filter = {
+    //     "memberships": {$elemMatch: {"playlist_name": "Pronouns and Adverbs"}}
+    // }
+    // let promisedList = [];
+    // Vocab.updateMany({
+    //     'memberships': {
+    //         $elemMatch: {
+    //             'playlist_name': 'Pronouns and Adverbs'
+    //         }
+    //     }
+    // },
+    // { $set: {"memberships.$[elem].playlist_name": 'Playlist A'} },
+    // { multi: true,
+    //     arrayFilters: [ {"elem.playlist_name": "Pronouns and Adverbs"} ] 
+    // }).then(docs => {
+    //     res.json({
+    //         status: "success",
+    //         data: docs
+    //     })
+    // }).catch(err => {
+    //     res.json({
+    //         status: "failuer",
+    //         data: err.message
+    //     })
+    // })
+
+    // Vocab.find(filter)
+        // .then(data => {
+        //     res.json(data);
+        // })
+        // .catch(err => {
+        //     res.json({message: err})
+        // })
     // let promisedList = [];
     // Vocab.find()
     //     .then(data => {

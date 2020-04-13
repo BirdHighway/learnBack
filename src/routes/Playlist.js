@@ -43,11 +43,31 @@ router.post('/', (req, res) => {
 // update playlist
 router.patch('/', (req, res) => {
     console.log('updating playlist with _id: ' + req.body._id);
+    let newName = req.body.name;
+    let playlistId = req.body._id
     Playlist.findByIdAndUpdate(req.body._id, req.body, {new: true})
         .then(docs => {
-            res.json({
-                status: 'success',
-                data: docs
+            Vocab.updateMany({
+                'memberships': {
+                    $elemMatch: {
+                        'playlist_id': playlistId
+                    }
+                }
+            },
+            { $set: {"memberships.$[elem].playlist_name": newName} },
+            { multi: true,
+                arrayFilters: [ {"elem.playlist_id": playlistId} ]
+            }).then(results => {
+                res.json({
+                    status: 'success',
+                    data: results
+                })
+            })
+            .catch(err => {
+                res.json({
+                    status: 'failure',
+                    data: err.message
+                })
             })
         })
         .catch(err => {
