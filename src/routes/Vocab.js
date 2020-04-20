@@ -63,7 +63,7 @@ router.get('/special', (req, res) => {
 router.get('/', (req, res) => {
     console.log('getting vocab entries');
     console.log(req.query);
-    let limit = 40;
+    let limit = 50;
     let skip = 0;
     let pageNumber = 1;
     let filter;
@@ -103,7 +103,11 @@ router.get('/', (req, res) => {
         filter.tags = {"$ne": req.query.excludeTag};
     }
     if (req.query.playlist) {
-        filter.memberships = {$elemMatch: {'playlist_id': req.query.playlist}}
+        if (req.query.playlist == 'no-memberships') {
+            filter.memberships = [];
+        } else {
+            filter.memberships = {$elemMatch: {'playlist_id': req.query.playlist}};
+        }
     }
     console.log(filter);
     Vocab.find(filter)
@@ -130,6 +134,27 @@ router.get('/', (req, res) => {
         })
         .catch(err => {
             res.json({status: 'error', message: err.message})
+        })
+})
+
+// mark mastered
+router.patch('/mastered', (req, res) => {
+    console.log('marking vocab mastered with _id: ' + req.body._id);
+    Vocab.findOneAndUpdate(
+        { _id: req.body._id },
+        { mastered: true },
+        { new: true }
+        ).then( word => {
+            res.json({
+                status: 'success',
+                data: word
+            })
+        })
+        .catch( err => {
+            res.json({
+                status: 'failure',
+                data: err.message
+            })
         })
 })
 
@@ -193,7 +218,7 @@ router.post('/playlists', (req, res) => {
 
 // add or remove from playlist
 router.patch('/playlists', (req, res) => {
-    let vId = req.body.vocab_id[0];
+    let vId = req.body.vocab_id;
     let pId = req.body.playlist_id;
     let action = req.body.action;
     console.log('action: ' + action);

@@ -8,7 +8,9 @@ console.log('index.js loaded...');
 // middleware
 app.use(cors());
 app.use(bodyParser.json());
-app.use(express.static('src/audio'));
+app.use(express.static('src/audio', {
+	etag: false
+}));
 
 // vocab entries
 const vocabRoutes = require('./routes/Vocab');
@@ -17,6 +19,10 @@ app.use('/vocab', vocabRoutes);
 // playlist entries
 const playlistRoutes = require('./routes/Playlist');
 app.use('/playlist', playlistRoutes);
+
+// verb entries
+const verbRoutes = require('./routes/VerbSet');
+app.use('/verbs', verbRoutes);
 
 // import other routes
 // const nounRoutes = require('./routes/Nouns');
