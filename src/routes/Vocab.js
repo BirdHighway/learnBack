@@ -2,63 +2,6 @@ const express = require('express');
 const router = express.Router();
 const Vocab = require('../models/Vocab');
 
-// special update
-router.get('/special', (req, res) => {
-    // let filter = {
-    //     "memberships": {$elemMatch: {"playlist_name": "Pronouns and Adverbs"}}
-    // }
-    // let promisedList = [];
-    // Vocab.updateMany({
-    //     'memberships': {
-    //         $elemMatch: {
-    //             'playlist_name': 'Pronouns and Adverbs'
-    //         }
-    //     }
-    // },
-    // { $set: {"memberships.$[elem].playlist_name": 'Playlist A'} },
-    // { multi: true,
-    //     arrayFilters: [ {"elem.playlist_name": "Pronouns and Adverbs"} ] 
-    // }).then(docs => {
-    //     res.json({
-    //         status: "success",
-    //         data: docs
-    //     })
-    // }).catch(err => {
-    //     res.json({
-    //         status: "failuer",
-    //         data: err.message
-    //     })
-    // })
-
-    // Vocab.find(filter)
-        // .then(data => {
-        //     res.json(data);
-        // })
-        // .catch(err => {
-        //     res.json({message: err})
-        // })
-    // let promisedList = [];
-    // Vocab.find()
-    //     .then(data => {
-    //         data.forEach((word) => {
-    //             word.eng_audio = '21/' + word.eng_audio;
-    //             word.eng_text = word.eng_text.substr(3);
-    //             word.save();
-    //             promisedList.push(word);
-    //         })
-    //         Promise.all(promisedList)
-    //             .then(result => {
-    //                 res.json(result);
-    //             })
-    //             .catch(err => {
-    //                 res.json({status: 'error', message: err.message});
-    //             })
-    //     })
-    //     .catch(err => {
-    //         res.json({status: 'outer error', message: err.message});
-    //     })
-})
-
 // get all vocab
 router.get('/', (req, res) => {
     console.log('getting vocab entries');
@@ -67,6 +10,10 @@ router.get('/', (req, res) => {
     let skip = 0;
     let pageNumber = 1;
     let filter;
+    let sort = {};
+    if (req.query.sorting) {
+        sort = {lastPracticed: 1}
+    }
     if (req.query.playlist) {
         filter = {};
     } else {
@@ -111,6 +58,7 @@ router.get('/', (req, res) => {
     }
     console.log(filter);
     Vocab.find(filter)
+        .sort(sort)
         .limit(limit)
         .skip(skip)        
         .then(docs => {
@@ -135,6 +83,31 @@ router.get('/', (req, res) => {
         .catch(err => {
             res.json({status: 'error', message: err.message})
         })
+})
+
+// touch
+router.patch('/touch', (req, res) => {
+    console.log('updating lastPracticed to current date');
+    console.log('setting everPracticed to true');
+    Vocab.findOneAndUpdate(
+        { _id: req.body._id },
+        {
+            lastPracticed: new Date().toISOString(),
+            everPracticed: true
+        },
+        { new: true }
+    ).then(word => {
+        res.json({
+            status: 'success',
+            data: word
+        })
+    })
+    .catch(err => {
+        res.json({
+            status: 'failure',
+            data: err.message
+        })
+    })
 })
 
 // mark mastered
@@ -261,6 +234,128 @@ router.patch('/playlists', (req, res) => {
 
 })
 
+
+
+// new vocab word
+router.post('/', (req, res) => {
+    console.log('creating new vocab word');
+    let word = new Vocab(req.body);
+    console.log(word);
+    word.save()
+        .then(word => {
+            res.json({status: 'success', data: word})
+        })
+        .catch(err => {
+            res.json({status: 'failure', data: err.message})
+        })
+})
+
+// delete word
+router.delete('/id/:id', (req, res) => {
+    Vocab.findByIdAndDelete(req.params.id)
+        .then(docs => {
+            res.json({
+                status: 'success',
+                data: docs
+            })
+        })
+        .catch(err => {
+            res.json({
+                status: 'failure',
+                data: err
+            })
+        })
+})
+
+
+module.exports = router;
+
+
+
+
+
+
+
+// router.get('/special', (req, res) => {
+//     console.log('updating all');
+//     Vocab.updateMany(
+//         {},
+//         {
+//             $set: {
+//                 everPracticed: false
+//             }
+//         },
+//         {new: true})
+//     .then(docs => {
+//         res.json({
+//             data: docs
+//         })
+//     })
+//     .catch(err => {
+//         res.json({
+//             data: err
+//         })
+//     })
+// })
+
+// special update
+// router.get('/special', (req, res) => {
+    // let filter = {
+    //     "memberships": {$elemMatch: {"playlist_name": "Pronouns and Adverbs"}}
+    // }
+    // let promisedList = [];
+    // Vocab.updateMany({
+    //     'memberships': {
+    //         $elemMatch: {
+    //             'playlist_name': 'Pronouns and Adverbs'
+    //         }
+    //     }
+    // },
+    // { $set: {"memberships.$[elem].playlist_name": 'Playlist A'} },
+    // { multi: true,
+    //     arrayFilters: [ {"elem.playlist_name": "Pronouns and Adverbs"} ] 
+    // }).then(docs => {
+    //     res.json({
+    //         status: "success",
+    //         data: docs
+    //     })
+    // }).catch(err => {
+    //     res.json({
+    //         status: "failuer",
+    //         data: err.message
+    //     })
+    // })
+
+    // Vocab.find(filter)
+        // .then(data => {
+        //     res.json(data);
+        // })
+        // .catch(err => {
+        //     res.json({message: err})
+        // })
+    // let promisedList = [];
+    // Vocab.find()
+    //     .then(data => {
+    //         data.forEach((word) => {
+    //             word.eng_audio = '21/' + word.eng_audio;
+    //             word.eng_text = word.eng_text.substr(3);
+    //             word.save();
+    //             promisedList.push(word);
+    //         })
+    //         Promise.all(promisedList)
+    //             .then(result => {
+    //                 res.json(result);
+    //             })
+    //             .catch(err => {
+    //                 res.json({status: 'error', message: err.message});
+    //             })
+    //     })
+    //     .catch(err => {
+    //         res.json({status: 'outer error', message: err.message});
+    //     })
+// })
+
+
 // add to playlist
 // router.post('/playlists/:id', (req, res) => {
 //     console.log('adding playlist to vocab with _id: ' + req.params.id);
@@ -339,41 +434,12 @@ router.patch('/playlists', (req, res) => {
 //         })
 // })
 
-// new vocab word
-router.post('/', (req, res) => {
-    console.log('creating new vocab word');
-    let word = new Vocab(req.body);
-    console.log(word);
-    word.save()
-        .then(word => {
-            res.json({status: 'success', data: word})
-        })
-        .catch(err => {
-            res.json({status: 'failure', data: err.message})
-        })
-})
 
-// delete word
-router.delete('/id/:id', (req, res) => {
-    Vocab.findByIdAndDelete(req.params.id)
-        .then(docs => {
-            res.json({
-                status: 'success',
-                data: docs
-            })
-        })
-        .catch(err => {
-            res.json({
-                status: 'failure',
-                data: err
-            })
-        })
-})
 
 // bulk add through a get request
-router.get('/bulk', (req, res) => {
-    console.log('bulk add through a get request');
-    res.json({result: 'uncomment to bulk add'});
+// router.get('/bulk', (req, res) => {
+//     console.log('bulk add through a get request');
+//     res.json({result: 'uncomment to bulk add'});
     // let base = '21_eng_';
     // let promisedList = [];
 
@@ -408,6 +474,4 @@ router.get('/bulk', (req, res) => {
     //     .catch(err => {
     //         res.json({message: err.message});
     //     })
-})
-
-module.exports = router;
+// })
