@@ -21,6 +21,8 @@ const VerbSetSchema = new Schema({
     eng_audio: {type: String, default: '', trim: true},
     a_audio_base: {type: String, default: '', trim: true},
     status: {type: String, default: '', trim: true},
+    everPracticed: {type: Boolean, default: false},
+    lastPracticed: {type: Date, default: "1970-01-01T00:00:00.000Z"},
     a_pres_text: TenseSchema,
     a_past_text: TenseSchema
 })

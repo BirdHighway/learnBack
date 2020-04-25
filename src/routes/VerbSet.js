@@ -3,57 +3,6 @@ const express = require('express');
 const router = express.Router();
 const VerbSet = require('../models/VerbSet');
 
-// initial insert
-router.get('/initial', (req, res) => {
-    console.log('initial insert route');
-    res.json({
-        status: 'nothing',
-        message: 'uncomment text to perform operation'
-    })
-    // let promisedList = [];
-    // for (let j=0; j<verbData.words.length; j++) {
-    //     let word = verbData.words[j];
-    //     console.log(word);
-    //     let newVerbSet = new VerbSet({
-    //         eng_text: word[1],
-    //         eng_audio: word[2],
-    //         a_audio_base: word[0],
-    //         status: 'new',
-    //         a_pres_text: {
-    //             tense: 'present',
-    //             he: '',
-    //             i: '',
-    //             she: '',
-    //             they: '',
-    //             we: '',
-    //             you_female: '',
-    //             you_male: '',
-    //             you_plural: ''
-    //         },
-    //         a_past_text: {
-    //             tense: 'past',
-    //             he: '',
-    //             i: '',
-    //             she: '',
-    //             they: '',
-    //             we: '',
-    //             you_female: '',
-    //             you_male: '',
-    //             you_plural: ''
-    //         }
-    //     })
-    //     newVerbSet.save();
-    //     promisedList.push(newVerbSet);
-    // }
-    // Promise.all(promisedList)
-    // .then(data => {
-    //     res.json(data)
-    // })
-    // .catch(err => {
-    //     res.json({message: err.message})
-    // })
-})
-
 // get all verb sets
 router.get('/', (req, res) => {
     console.log('getting all verb sets');
@@ -123,6 +72,29 @@ router.get('/', (req, res) => {
 
 })
 
+// touch
+router.patch('/touch', (req, res) => {
+    console.log('updating last practiced for verb with id: ' + req.body._id);
+    VerbSet.findOneAndUpdate(
+        { _id: req.body._id },
+        {
+            lastPracticed: new Date().toISOString(),
+            everPracticed: true
+        },
+        { new: true }
+    ).then(doc => {
+        res.json({
+            status: 'success',
+            data: doc
+        })
+    }).catch(err => {
+        res.json({
+            status: 'failure',
+            data: err.message
+        })
+    })
+})
+
 // update verb set
 router.patch('/', (req, res) => {
     console.log('updating VerbSet with _id: ' + req.body._id);
@@ -136,3 +108,82 @@ router.patch('/', (req, res) => {
 })
 
 module.exports = router;
+
+
+
+router.get('/special', (req, res) => {
+    console.log('updating all');
+    VerbSet.updateMany(
+        {},
+        {
+            $set: {
+                everPracticed: false,
+                lastPracticed: "1970-01-01T00:00:00.000Z"
+            }
+        },
+        {new: true})
+    .then(docs => {
+        res.json({
+            data: docs
+        })
+    })
+    .catch(err => {
+        res.json({
+            data: err
+        })
+    })
+})
+
+
+
+
+// initial insert
+// router.get('/initial', (req, res) => {
+//     console.log('initial insert route');
+//     res.json({
+//         status: 'nothing',
+//         message: 'uncomment text to perform operation'
+//     })
+    // let promisedList = [];
+    // for (let j=0; j<verbData.words.length; j++) {
+    //     let word = verbData.words[j];
+    //     console.log(word);
+    //     let newVerbSet = new VerbSet({
+    //         eng_text: word[1],
+    //         eng_audio: word[2],
+    //         a_audio_base: word[0],
+    //         status: 'new',
+    //         a_pres_text: {
+    //             tense: 'present',
+    //             he: '',
+    //             i: '',
+    //             she: '',
+    //             they: '',
+    //             we: '',
+    //             you_female: '',
+    //             you_male: '',
+    //             you_plural: ''
+    //         },
+    //         a_past_text: {
+    //             tense: 'past',
+    //             he: '',
+    //             i: '',
+    //             she: '',
+    //             they: '',
+    //             we: '',
+    //             you_female: '',
+    //             you_male: '',
+    //             you_plural: ''
+    //         }
+    //     })
+    //     newVerbSet.save();
+    //     promisedList.push(newVerbSet);
+    // }
+    // Promise.all(promisedList)
+    // .then(data => {
+    //     res.json(data)
+    // })
+    // .catch(err => {
+    //     res.json({message: err.message})
+    // })
+// })

@@ -12,7 +12,11 @@ router.get('/', (req, res) => {
     let filter;
     let sort = {};
     if (req.query.sorting) {
-        sort = {lastPracticed: 1}
+        if (req.query.sorting === 'old') {
+            sort = {lastPracticed: 1}
+        } else if (req.query.sorting === 'new') {
+            sort = {lastPracticed: -1}
+        }        
     }
     if (req.query.playlist) {
         filter = {};
@@ -20,8 +24,32 @@ router.get('/', (req, res) => {
         filter = {"memberships.playlist_name": {"$ne" : "Hidden"}};
     }
 
+    if (req.query.status && (req.query.status !== 'all')) {
+        if (req.query.status === 'mastered') {
+            filter.mastered = true;
+        } else if (req.query.status === 'not-mastered') {
+            filter.mastered = false;
+        } else if (req.query.status === 'just-practiced') {
+            filter.everPracticed = true;
+            filter.mastered = false;
+        } else if (req.query.status === 'never-practiced') {
+            filter.everPracticed = false;
+        }
+    }
+
+
+
     if (req.query.limit ) {
         limit = parseInt(req.query.limit);
+    }
+    if (req.query.subset) {
+        limit = parseInt(req.query.subset);
+        if (req.query.status && (req.query.status === 'mastered')) {
+            filter.mastered = true;
+        } else {
+            filter.mastered = false;
+        }
+        sort = {lastPracticed: 1}
     }
     if (req.query.page && req.query.page > 0) {
         pageNumber = req.query.page;
@@ -56,7 +84,14 @@ router.get('/', (req, res) => {
             filter.memberships = {$elemMatch: {'playlist_id': req.query.playlist}};
         }
     }
+    console.log("FILTER");
     console.log(filter);
+    console.log("SORT");
+    console.log(sort);
+    console.log("LIMIT");
+    console.log(limit);
+    console.log("SKIP");
+    console.log(skip);
     Vocab.find(filter)
         .sort(sort)
         .limit(limit)
@@ -83,6 +118,31 @@ router.get('/', (req, res) => {
         .catch(err => {
             res.json({status: 'error', message: err.message})
         })
+})
+
+// touchB
+router.patch('/touch-b', (req, res) => {
+    console.log('updating lastPracticedB to current date');
+    console.log('setting everPracticedB to true');
+    Vocab.findOneAndUpdate(
+        { _id: req.body._id },
+        {
+            lastPracticedB: new Date().toISOString(),
+            everPracticedB: true
+        },
+        { new: true }
+    ).then(word => {
+        res.json({
+            status: 'success',
+            data: word
+        })
+    })
+    .catch(err => {
+        res.json({
+            status: 'failure',
+            data: err.message
+        })
+    })
 })
 
 // touch
