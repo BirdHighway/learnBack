@@ -3,10 +3,56 @@ const router = express.Router();
 const Playlist = require('../models/Playlist');
 const Vocab = require('../models/Vocab');
 
+// router.get('/special', (req, res) => {
+//     let promiseList = [];
+//     Playlist.find()
+//         .sort([["order", 1]])
+//         .then(playlists => {
+//             let obj = {};
+//             playlists.forEach(p => {
+//                 obj[p._id] = p.order;
+//             })
+//             console.log(obj);
+//             Vocab.find()
+//                 .then(docs => {
+//                     docs.forEach(d => {
+//                         d.playlist.order = obj[d.playlist.playlist_id];
+//                         d.save();
+//                         promiseList.push(d);
+//                     })
+//                     Promise.all(promiseList)
+//                         .then(data => {
+//                             res.json({
+//                                 d: data
+//                             })
+//                         })
+//                         .catch(err => {
+//                             res.json({
+//                                 d: err.message
+//                             })
+//                         })
+//                 })
+//                 .catch(err => {
+//                     res.json({
+//                         em: err.message
+//                     })
+//                 })
+//         })
+//         .catch(err => {
+//             res.json({
+//                 data: err.message
+//             })
+//         })
+// })
+
 // get all playlists
 router.get('/', (req, res) => {
     console.log('getting all playlists');
+    let sort = [
+        ["order", 1]
+    ]
     Playlist.find()
+        .sort(sort)
         .then(docs => {
             res.json({
                 status: 'success',
@@ -116,20 +162,52 @@ router.delete('/id/:id', (req, res) => {
                 data: err.message
             })
         })
-
-    // Playlist.findByIdAndDelete(req.params.id)
-    //     .then(docs => {
-    //         res.json({
-    //             status: 'success',
-    //             data: docs
-    //         })
-    //     })
-    //     .catch(err => {
-    //         res.json({
-    //             status: 'failure',
-    //             data: err
-    //         })
-    //     })
 })
 
 module.exports = router;
+
+
+
+// SPECIAL
+// router.get('/special', (req, res) => {
+//     console.log('special update to add count field');
+//     let promiseList = [];
+//     Playlist.find()
+//         .then(playlists => {
+//             playlists.forEach( p => {
+//                 Vocab.countDocuments({
+//                     "playlist.playlist_id": p._id,
+//                     mastered: false
+//                 }).then(num => {
+//                     p.learning = num;
+//                     p.save();
+//                     promiseList.push(p);
+//                 })
+//                 .catch(err => {
+//                     res.json({
+//                         status: 'error',
+//                         data: err.message
+//                     })
+//                 })
+//             })
+//         })
+//         .catch(err => {
+//             res.json({
+//                 status: 'error',
+//                 data: err.message
+//             })
+//         })
+//         Promise.all(promiseList)
+//             .then(data => {
+//                 res.json({
+//                     status: 'success',
+//                     data: data
+//                 })
+//             })
+//             .catch(err => {
+//                 res.json({
+//                     status: 'error',
+//                     data: err.message
+//                 })
+//             })
+// })

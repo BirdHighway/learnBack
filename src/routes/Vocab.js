@@ -1,6 +1,34 @@
 const express = require('express');
 const router = express.Router();
 const Vocab = require('../models/Vocab');
+const Playlist = require('../models/Playlist');
+
+
+router.get('/random', (req, res) => {
+    console.log('getting random vocab entries');
+    let limit = 50;
+    if (req.query.limit) {
+        limit = parseInt(req.query.limit);
+    }
+    Vocab.aggregate([
+        {$match: {
+            mastered: false,
+            "playlist.playlist_id": { $nin: ['5e90354e7a025702a3538319', '']}
+        }},
+        {$sample: {size: limit}}
+    ]
+    ).then(docs => {
+        res.json({
+            status: 'success',
+            data: docs
+        })
+    }).catch(err => {
+        res.json({
+            status: 'error',
+            data: err.message
+        })
+    })
+})
 
 // get all vocab
 router.get('/', (req, res) => {
@@ -10,18 +38,30 @@ router.get('/', (req, res) => {
     let skip = 0;
     let pageNumber = 1;
     let filter;
-    let sort = {};
-    if (req.query.sorting) {
-        if (req.query.sorting === 'old') {
-            sort = {lastPracticed: 1}
-        } else if (req.query.sorting === 'new') {
-            sort = {lastPracticed: -1}
-        }        
+    let sort = [
+        ["playlist.order", 1],
+        ["lastPracticed", 1]
+    ];
+    if (req.query.sorting && (req.query.sorting === 'new')) {
+        sort[1][1] = -1;
     }
+    // query.playlist
+    // value is string = playlist._id
     if (req.query.playlist) {
-        filter = {};
+        if (req.query.playlist === 'no-memberships') {
+            filter = {
+                "playlist.playlist_id": ''
+            }
+        } else if (req.query.playlist === 'none') {
+            filter = {"playlist.playlist_id": {"$ne" : "5e90354e7a025702a3538319"}};
+        } else {
+            filter = {
+                "playlist.playlist_id": req.query.playlist
+            };
+        }
     } else {
-        filter = {"memberships.playlist_name": {"$ne" : "Hidden"}};
+        // "Hidden" playlist has an id of: "5e90354e7a025702a3538319"
+        filter = {"playlist.playlist_id": {"$ne" : "5e90354e7a025702a3538319"}};
     }
 
     if (req.query.status && (req.query.status !== 'all')) {
@@ -36,9 +76,6 @@ router.get('/', (req, res) => {
             filter.everPracticed = false;
         }
     }
-
-
-
     if (req.query.limit ) {
         limit = parseInt(req.query.limit);
     }
@@ -49,7 +86,6 @@ router.get('/', (req, res) => {
         } else {
             filter.mastered = false;
         }
-        sort = {lastPracticed: 1}
     }
     if (req.query.page && req.query.page > 0) {
         pageNumber = req.query.page;
@@ -65,7 +101,17 @@ router.get('/', (req, res) => {
     if (req.query.searchTarget) {
         let searchText = decodeURIComponent(req.query.searchText);
         if (req.query.searchTarget === 'tags') {
-            filter.tags = { $regex: searchText };
+            if (req.query.searchText === 'noun') {
+                filter.type = 'noun';
+            } else if (req.query.searchText === 'adjective') {
+                filter.type = 'adjective';
+            } else if (req.query.searchText === 'verb') {
+                filter.type = 'verb';
+            } else if (req.query.searchText === 'other') {
+                filter.type = 'other';
+            } else {
+                filter.tags = { $regex: searchText };
+            }
         } else if (req.query.searchTarget === 'source') {
             filter.source = { $regex: searchText };
         } else if (req.query.searchTarget === 'english') {
@@ -77,13 +123,19 @@ router.get('/', (req, res) => {
     if (req.query.excludeTag) {
         filter.tags = {"$ne": req.query.excludeTag};
     }
-    if (req.query.playlist) {
-        if (req.query.playlist == 'no-memberships') {
-            filter.memberships = [];
-        } else {
-            filter.memberships = {$elemMatch: {'playlist_id': req.query.playlist}};
+
+    if (req.query.group) {
+        if (req.query.group === 'all-last-p') {
+            filter = {
+                mastered: false,
+                "playlist.playlist_id": { $nin: ['5e90354e7a025702a3538319', '']}
+            }
+            sort = [
+                ["lastPracticed", 1]
+            ];
         }
     }
+
     console.log("FILTER");
     console.log(filter);
     console.log("SORT");
@@ -194,13 +246,126 @@ router.patch('/mastered', (req, res) => {
 // update vocab
 router.patch('/', (req, res) => {
     console.log('updating vocab obj with _id: ' + req.body._id);
-    Vocab.findByIdAndUpdate(req.body._id, req.body, {new: true})
-        .then(word => {
-            res.json({status: 'success', data: word})
+    let promisedList = [];
+    Vocab.findByIdAndUpdate(req.body._id, req.body, {new: false, useFindAndModify: false})
+        .then(original => {
+            if (original.playlist.playlist_id != req.body.playlist.playlist_id) {
+                Playlist.findById(original.playlist.playlist_id)
+                    .then(p => {
+                        p.count--;
+                        if (original.mastered) {
+                            p.mastered--;
+                        }
+                        p.save();
+                        promisedList.push(p);
+                    })
+                    .catch(err => {
+                        res.json({
+                            status: 'error',
+                            data: err.message
+                        })
+                    })
+                Playlist.findById(req.body.playlist_id)
+                    .then(p => {
+                        p.count++;
+                        if (req.body.mastered) {
+                            p.mastered++;
+                        }
+                        p.save();
+                        promisedList.push(p);
+                    })
+            } else if (original.mastered != req.body.mastered) {
+                Playlist.findById(req.body.playlist.playlist_id)
+                    .then(p => {
+                        if (req.body.mastered) {
+                            p.mastered++;
+                        } else {
+                            p.mastered--;
+                        }
+                        p.save();
+                        promisedList.push(p);
+                    })
+            } else {
+
+            }
+            Promise.all(promisedList)
+                .then(result => {
+                    res.json({
+                        status: 'success',
+                        data: result
+                    })
+                })
+                .catch(err => {
+                    res.json({
+                        status: 'error',
+                        data: err.message
+                    })
+                })
         })
         .catch(err => {
-            res.json({status: 'failure', data: err.message})
+            res.json({
+                status: 'error',
+                data: err.message
+            })
         })
+    // Vocab.findById(req.body._id)
+    //     .then(result => {
+    //         oMast = result.mastered;
+    //         nMast = req.body.mastered;
+    //         oPlay = result.playlist.playlist_id;
+    //         nPlay = req.body.playlist.playlist_id;
+    //         console.log(result);
+    //         console.log(req.body);
+    //         res.json({
+    //             status: 'success',
+    //             data: ''
+    //         })
+            // if (originalMastery != req.body.mastered) {
+            //     // playlist mastered count has been altered
+            //     Playlist.findById(req.body.playlist.playlist_id)
+            //         .then(p => {
+            //             if (req.body.mastered) {
+            //                 p.mastered++;
+            //             } else {
+            //                 p.mastered--;
+            //             }
+            //             p.save();
+            //             promisedList.push(p);
+            //         })
+            //         .catch(err => {
+            //             res.json({
+            //                 status: 'error',
+            //                 data: err.message
+            //             })
+            //         })
+            // }
+            // if (result.playlist.playlist_id != req.body.playlist.playlist_id) {
+            //     // playlist has been changed - update  info for past and future playlists
+            //     Playlist.findById(result.playlist.playlist_id)
+            //         .then(op => {
+
+            //         })
+            //         .catch(err => {
+            //             res.json({
+            //                 status: 'error',
+            //                 data: err.message
+            //             })
+            //         })
+            // }
+        // })
+        // .catch(err => {
+        //     res.json({
+        //         status: 'error',
+        //         data: err.message
+        //     })
+        // })
+    // Vocab.findByIdAndUpdate(req.body._id, req.body, {new: true})
+    //     .then(word => {
+    //         res.json({status: 'success', data: word})
+    //     })
+    //     .catch(err => {
+    //         res.json({status: 'failure', data: err.message})
+    //     })
 })
 
 // bulk playlist membership update
@@ -534,4 +699,60 @@ module.exports = router;
     //     .catch(err => {
     //         res.json({message: err.message});
     //     })
+// })
+
+
+// SPECIAL
+// TRANSFER PLAYLIST FROM ARRAY TO SINGLE PROPERTY
+// router.get('/special', (req, res) => {
+//     console.log('deleting memberships field');
+//     Vocab.collection.updateMany(
+//         {},
+//         {$unset: {memberships: 1}}
+//     ).then(result => {
+//         res.json({
+//             status: 'success',
+//             data: data
+//         })
+//     }).catch(err => {
+//         res.json({
+//             status: 'error',
+//             data: err.message
+//         })
+//     })
+// })
+
+// router.get('/special', (req, res) => {
+//     console.log('special update');
+//     let promisedList = [];
+//     Vocab.find()
+//         .then(words => {
+//             words.forEach(w => {
+//                 w.playlist = {
+//                     playlist_id: w.memberships[0].playlist_id,
+//                     playlist_name: w.memberships[0].playlist_name
+//                 }
+//                 // w.save();
+//                 // promisedList.push(w);
+//             })
+//             Promise.all(promisedList)
+//                 .then((data) => {
+//                     res.json({
+//                         status: 'success',
+//                         data: data
+//                     })
+//                 })
+//                 .catch((err) => {
+//                     res.json({
+//                         status: 'error',
+//                         data: err.message
+//                     })
+//                 })
+//         })
+//         .catch(() => {
+//             res.json({
+//                 status: 'error'
+//             })
+//         })
+
 // })
