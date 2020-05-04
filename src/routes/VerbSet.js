@@ -3,12 +3,64 @@ const express = require('express');
 const router = express.Router();
 const VerbSet = require('../models/VerbSet');
 
+// get specific groupings of verbs
+router.get('/collections', (req, res) => {
+    console.log('verbs/collections/ GET request');
+    let limit = 0;
+    let sort = [];
+    let filter = {}
+    if (!req.query.collectionType) {
+        res.json({
+            status: 'error',
+            data: 'No collectionType specified!'
+        });
+    }
+    let collectionType = req.query.collectionType;
+    if (collectionType === 'entire-set') {
+        // return every single verb, even those without text entered
+        filter = {}
+    } else if (collectionType === 'ready') {
+        // return all verbs that do not have the status of "new" or "hidden"
+        filter = {
+            status: {
+                $nin: [
+                    "new",
+                    "hidden"
+                ]
+            }
+        }
+    } else if (collectionType === 'by-status') {
+        let status = req.query.status;
+        filter = {
+            status: {
+                $eq: status
+            }
+        }
+    }
+    VerbSet.find(filter)
+        .sort(sort)
+        .limit(limit)
+        .then(docs => {
+            res.json({
+                status: 'success',
+                data: docs
+            })
+        })
+        .catch(err => {
+            res.json({
+                status: 'error',
+                data: err.message
+            })
+        })
+})
+
 // get all verb sets
 router.get('/', (req, res) => {
     console.log('getting all verb sets');
     let limit = 201;
     let skip = 0;
     let pageNumber = 1;
+    let sort = [];
     // let filter = {};
 
     // if (req.query.limit) {
@@ -41,7 +93,15 @@ router.get('/', (req, res) => {
             ]
         }
     }
+    if (req.query.sortPracticed) {
+        if (req.query.sortPracticed == 'true') {
+            sort = [
+                ["lastPracticed", 1]
+            ]
+        }
+    }
     VerbSet.find(filter)
+        .sort(sort)
         .limit(limit)
         .skip(skip)
         .then(docs => {

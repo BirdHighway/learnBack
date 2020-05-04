@@ -8,9 +8,6 @@ const connection = mongoose.connect(process.env.CONSTRING,
 const PlaylistSchema = new Schema({
     created: {type: Date, default: Date.now},
     name: {type: String, default: '', trim: true},
-    tags: [String],
-    count: {type: Number, default: 0},
-    mastered: {type: Number, default: 0},
     order: {type: Number, default: 999}
 })
 

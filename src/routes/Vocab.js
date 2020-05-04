@@ -371,47 +371,41 @@ router.patch('/', (req, res) => {
 // bulk playlist membership update
 router.post('/playlists', (req, res) => {
     console.log('bulk playlist update');
+    console.log(req.body);
 
     let pId = req.body.playlist_id;
     let pName = req.body.playlist_name;
+    let order = req.body.order;
     let additions = req.body.additions;
-    let removals = req.body.removals;
-
-    let promisedList = [];
+    
+    if (req.body.playlist_id == 'no-membership') {
+        pId = '';
+        pName = '';
+        order = 999;
+    }
 
     if (additions && additions.length > 0) {
-        let a = Vocab.updateMany({
-            '_id': {$in: additions}
-        },
-        {
-            $push: {memberships: {playlist_id: pId, playlist_name: pName}}
-        },
-        {new: true})
-        promisedList.push(a);
-    }
-    if (removals && removals.length > 0) {
-        let b = Vocab.updateMany({
-            '_id': {$in: removals}
-        },
-        {
-            $pull: {memberships: {playlist_id: pId}}
-        },
-        {new: true})
-        promisedList.push(b);
-    }
-    Promise.all(promisedList)
-        .then(data => {
-            res.json({
-                status: "success",
-                data: data
+        Vocab.updateMany(
+            {'_id': {$in: additions}},
+            {$set: {
+                    "playlist.playlist_id": pId,
+                    "playlist.playlist_name": pName,
+                    "playlist.order": order
+            }},
+            {new: true})
+            .then(data => {
+                res.json({
+                    status: 'success',
+                    data: data
+                })
             })
-        })
-        .catch(err => {
-            res.json({
-                status: "failure",
-                data: err.message
+            .catch(err => {
+                res.json({
+                    status: 'error',
+                    data: err.message
+                })
             })
-        })
+    }
 })
 
 // add or remove from playlist
