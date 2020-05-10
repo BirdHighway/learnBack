@@ -3,37 +3,16 @@ const router = express.Router();
 const Playlist = require('../models/Playlist');
 const Vocab = require('../models/Vocab');
 
-// special
-// router.get('/special', (req, res) => {
-//     console.log('special update');
-//     let promiseList = [];
-//     Playlist.collection.updateMany(
-//         {},
-//         {$unset: {
-//             tags: 1
-//         }}
-//     ).then(docs => {
-//             res.json({
-//                 status: 'success',
-//                 data: docs
-//             })
-//         })
-//     .catch(err => {
-//         res.json({
-//             status: 'error',
-//             data: err.message
-//         })
-//     })
-// })
 
 router.get('/full', (req, res) => {
-
-    p = Vocab.aggregate([
+    console.log('get full playlist info');
+    let promiseList = [];
+    let fullData = Vocab.aggregate([
         {
             $group: {
                 _id: "$playlist.playlist_id",
                 total: {$sum: 1},
-                practiceA: {$push: {ever: "$everPracticed", lastPracticed: "$lastPracticed", mastered: "$mastered"}},
+                practiceA: {$push: {ever: "$everPracticed", lastPracticed: "$lastPracticed", mastered: "$mastered", isActive: "$isActive"}},
                 playlistOrder: {
                     $first: "$playlist.order"
                 },
@@ -53,7 +32,8 @@ router.get('/full', (req, res) => {
             $sort: {
                 "practiceA.lastPracticed": 1
             }
-        },
+        }
+        ,
         {
             $group: {
                 _id: "$_id",
@@ -64,14 +44,35 @@ router.get('/full', (req, res) => {
                     $first: "$playlistOrder"
                 },
                 total: {$sum: 1},
+                inactive: {
+                    $sum: {
+                        $cond: ["$practiceA.isActive", 0, 1]
+                    }
+                },
                 mastered: {
                     $sum: {
-                        $cond: ["$practiceA.mastered", 1, 0]
+                        // $cond: ["$practiceA.mastered", 1, 0]
+                        $cond: [
+                            {$and: [
+                                {$eq: ["$practiceA.mastered", true]},
+                                {$eq: ["$practiceA.isActive", true]}
+                            ]},
+                            1,
+                            0
+                        ]
                     }
                 },
                 everPracticed: {
                     $sum: {
-                        $cond: ["$practiceA.ever", 1, 0]
+                        // $cond: ["$practiceA.ever", 1, 0]
+                        $cond: [
+                            {$and: [
+                                {$eq: ["$practiceA.ever", true]},
+                                {$eq: ["$practiceA.isActive", true]}
+                            ]},
+                            1,
+                            0
+                        ]
                     }
                 },
                 dates: {$push: "$practiceA.lastPracticed"},
@@ -79,7 +80,8 @@ router.get('/full', (req, res) => {
                     $cond: [
                         {$and: [
                             {$eq: ["$practiceA.ever", true]},
-                            {$eq: ["$practiceA.mastered", true]}
+                            {$eq: ["$practiceA.mastered", true]},
+                            {$eq: ["$practiceA.isActive", true]}
                         ]},
                         "$practiceA.lastPracticed",
                         null
@@ -89,7 +91,8 @@ router.get('/full', (req, res) => {
                     $cond: [
                         {$and: [
                             {$eq: ["$practiceA.ever", true]},
-                            {$eq: ["$practiceA.mastered", false]}
+                            {$eq: ["$practiceA.mastered", false]},
+                            {$eq: ["$practiceA.isActive", true]}
                         ]},
                         "$practiceA.lastPracticed",
                         null
@@ -97,7 +100,11 @@ router.get('/full', (req, res) => {
                 }},
                 practices: {$push: {
                     $cond: [
-                        {$eq: ["$practiceA.ever", true]},
+                        // {$eq: ["$practiceA.ever", true]},
+                        {$and: [
+                            {$eq: ["$practiceA.ever", true]},
+                            {$eq: ["$practiceA.isActive", true]}
+                        ]},
                         "$practiceA.lastPracticed",
                         null
                     ]
@@ -109,6 +116,7 @@ router.get('/full', (req, res) => {
                 playlistName: 1,
                 playlistOrder: 1,
                 total: "$total",
+                inactive: 1,
                 mastered: 1,
                 everPracticed: 1,
                 mastPracticeTimes: {
@@ -152,6 +160,7 @@ router.get('/full', (req, res) => {
                 playlistName: 1,
                 playlistOrder: 1,
                 total: 1,
+                inactive: 1,
                 mastered: 1,
                 totalMastPract: {
                     $size: "$mastPracticeTimes"
@@ -172,6 +181,9 @@ router.get('/full', (req, res) => {
                 },
                 newest: {
                     $max: "$practiceTimes"
+                },
+                oldestUnmast: {
+                    $min: "$unmastPracticeTimes"
                 }
             }
 
@@ -182,82 +194,37 @@ router.get('/full', (req, res) => {
             }
         }
     ])
+    promiseList.push(fullData);
+    let basicData = Playlist.find();
+    promiseList.push(basicData);
+    Promise.all(promiseList)
+        .then(data => {
+            res.json({
+                status: 'success',
+                data: data
+            })
+        })
+        .catch(err => {
+            res.json({
+                status: 'error',
+                data: err.message
+            })
+        })
+})
 
-    // p = Vocab.aggregate([
-    //     {$facet: {
-    //         "total": [
-    //             {$group: {
-    //                 _id: "$playlist.playlist_name",
-    //                 total: {$sum: 1}
-    //             }}
-    //         ],
-    //         "mastered": [
-    //             {$match: {
-    //                 mastered: true
-    //             }},
-    //             {$group: {
-    //                 _id: "$playlist.playlist_name",
-    //                 total: {$sum: 1}
-    //             }}
-    //         ],
-    //         "unmastered": [
-    //             {$match: {
-    //                 mastered: false
-    //             }},
-    //             {$group: {
-    //                 _id: "$playlist.playlist_name",
-    //                 total: {$sum: 1}
-    //             }}
-    //         ],
-    //         "practiced": [
-    //             {$match: {
-    //                 everPracticed: true
-    //             }},
-    //             {$group: {
-    //                 _id: "$playlist.playlist_name",
-    //                 total: {$sum: 1},
-    //                 oldest: {$max: "$lastPracticed"},
-    //             }}
-    //         ],
-    //         "past24": [
-    //             {$match: {
-    //                 everPracticed: true,
-    //                 lastPracticed: {
-    //                     $gt: new Date(new Date().setDate(new Date().getDate() - 1))
-    //                 }
-    //             }},
-    //             {$group: {
-    //                 _id: "$playlist.playlist_name",
-    //                 total: {$sum: 1}
-    //             }}
-    //         ],
-    //         "past48": [
-    //             {$match: {
-    //                 everPracticed: true,
-    //                 lastPracticed: {
-    //                     $gt: new Date(new Date().setDate(new Date().getDate() - 2))
-    //                 }
-    //             }},
-    //             {$group: {
-    //                 _id: "$playlist.playlist_name",
-    //                 total: {$sum: 1}
-    //             }}
-    //         ]
-    //     }}
-    // ])
-    
-    // p = Vocab.aggregate([
-    //     {$group: {
-    //         _id: "$playlist.playlist_name",
-    //         oldest: {$min: "$lastPracticed"},
-    //         total: {$sum: 1}
-    //     }}
-    // ])
-    
-    p.then(data => {
+// get one playlist
+router.get('/id/:playlistId', (req, res) => {
+    console.log('getting one playlist');
+    console.log(req.params.playlistId);
+    Playlist.find({
+        _id: {
+            $eq: req.params.playlistId
+        }
+    })
+    .then(docs => {
         res.json({
             status: 'success',
-            data: data
+            data: docs
         })
     })
     .catch(err => {
@@ -267,181 +234,6 @@ router.get('/full', (req, res) => {
         })
     })
 })
-
-// get full playlist information
-// router.get('/full', (req, res) => {
-//     console.log('getting full playlist information');
-//     let sort = [
-//         ["order", 1]
-//     ];
-//     let promiseList = [];
-//     Playlist.find()
-//         .sort(sort)
-//         .then(docs => {
-
-//             docs.forEach(d => {
-//                 let id = d._id;
-//                 console.log(d);
-//                 p = Vocab.aggregate([
-//                     {
-//                         $facet:
-//                         {
-//                             "total": [
-//                                 {
-//                                     $match:
-//                                         { "playlist.playlist_id": id}
-//                                 }, { $count: "count" }]
-//                             ,
-//                             "mastered":
-//                                 [{
-//                                     $match:
-//                                     { 
-//                                         $and: [
-//                                             { "playlist.playlist_id": id},
-//                                             { mastered: true }]
-//                                     }
-//                                 },
-//                                 { $count: "count" }],
-//                             "unmastered":
-//                                 [{$match: {
-//                                         $and: [
-//                                             { "playlist.playlist_id": id},
-//                                             { mastered: false }]
-//                                         }
-//                                 },
-//                                 { $count: "count"}],
-//                             "oldest_unmastered":
-//                                 [{$match: {
-//                                         $and: [
-//                                             { "playlist.playlist_id": id},
-//                                             { mastered: false }]
-//                                         }
-//                                 },
-//                                 { $sort: {
-//                                     lastPracticed: 1
-//                                 }}
-//                             ],
-//                             "oldest_mastered":
-//                                 [{$match: {
-//                                     $and: [
-//                                         { "playlist.playlist_id": id},
-//                                         { mastered: true }]
-//                                     }
-//                                 },
-//                                 { $sort: {
-//                                     lastPracticed: 1
-//                                 }}
-//                             ],
-//                         }
-//                     },
-//                 {
-//                     $project: {
-//                         "total": {$arrayElemAt: ["$total.count",0]},
-//                         "mastered": {$arrayElemAt: ["$mastered.count",0]},
-//                         "unmastered": {$arrayElemAt: ["$unmastered.count",0]},
-//                         "oldest_unmastered": {$arrayElemAt: ["$oldest_unmastered.lastPracticed",0]},
-//                         "oldest_mastered": {$arrayElemAt: ["$oldest_mastered.lastPracticed",0]}
-//                     }
-//                 }]).exec();
-//                 promiseList.push(p);
-//             })
-
-//             Promise.all(promiseList)
-//                 .then(data => {
-//                     res.json({
-//                         status: 'success',
-//                         data: [data, docs]
-//                     })
-//                 })
-//                 .catch(err => {
-//                     res.json({
-//                         status: 'error',
-//                         data: err.message
-//                     })
-//                 })
-
-//             // Vocab.aggregate([
-//             //     {
-//             //         $facet:
-//             //         {
-//             //             "total": [
-//             //                 {
-//             //                     $match:
-//             //                         { "playlist.playlist_id": "5e9b983f99ac7e08cb429652"}
-//             //                 }, { $count: "count" }]
-//             //             ,
-//             //             "mastered":
-//             //                 [{
-//             //                     $match:
-//             //                     { 
-//             //                         $and: [
-//             //                             { "playlist.playlist_id": "5e9b983f99ac7e08cb429652"},
-//             //                             { mastered: true }]
-//             //                     }
-//             //                 },
-//             //                 { $count: "count" }],
-//             //             "unmastered":
-//             //                 [{$match: {
-//             //                         $and: [
-//             //                             { "playlist.playlist_id": "5e9b983f99ac7e08cb429652"},
-//             //                             { mastered: false }]
-//             //                         }
-//             //                 },
-//             //                 { $count: "count"}],
-//             //             "oldest_unmastered":
-//             //                 [{$match: {
-//             //                         $and: [
-//             //                             { "playlist.playlist_id": "5e9b983f99ac7e08cb429652"},
-//             //                             { mastered: false }]
-//             //                         }
-//             //                 },
-//             //                 { $sort: {
-//             //                     lastPracticed: 1
-//             //                 }}
-//             //             ],
-//             //             "oldest_mastered":
-//             //                 [{$match: {
-//             //                     $and: [
-//             //                         { "playlist.playlist_id": "5e9b983f99ac7e08cb429652"},
-//             //                         { mastered: true }]
-//             //                     }
-//             //                 },
-//             //                 { $sort: {
-//             //                     lastPracticed: 1
-//             //                 }}
-//             //             ],
-//             //         }
-//             //     },
-//             // {
-//             //     $project: {
-//             //         "total": {$arrayElemAt: ["$total.count",0]},
-//             //         "mastered": {$arrayElemAt: ["$mastered.count",0]},
-//             //         "unmastered": {$arrayElemAt: ["$unmastered.count",0]},
-//             //         "oldest_unmastered": {$arrayElemAt: ["$oldest_unmastered.lastPracticed",0]},
-//             //         "oldest_mastered": {$arrayElemAt: ["$oldest_mastered.lastPracticed",0]}
-//             //     }
-//             // }])
-//             //     .then(data => {
-//             //         res.json({
-//             //             status: 'success',
-//             //             data: data
-//             //         })
-//             //     })
-//             //     .catch(err => {
-//             //         res.json({
-//             //             status: 'error',
-//             //             data: err.message
-//             //         })
-//             //     })
-//         })
-//         .catch(err => {
-//             res.json({
-//                 status: 'error',
-//                 data: err.message
-//             })
-//         })
-
-// })
 
 // get all playlists
 router.get('/', (req, res) => {
@@ -484,24 +276,173 @@ router.post('/', (req, res) => {
         })
 })
 
-// update playlist
-router.patch('/', (req, res) => {
-    let id = req.body.playlist_id;
-    let name = req.body.playlist_name;
-    let order = req.body.order;
-    Playlist.findByIdAndUpdate(id, {name: name, order: order}, {new: false, useFindAndModify: false})
-        .then(docs => {
+// UPDATE PLAYLIST
+// 
+// CHANGES TO:
+// ORDER
+//
+router.patch('/order', (req, res) => {
+    console.log('update playlist order');
+    let playlistId = req.body._id;
+    let newOrder = req.body.order;
+    Playlist.findByIdAndUpdate(
+        playlistId,
+        {
+            order: newOrder
+        },
+        {
+            new: false,
+            useFindAndModify: false
+        })
+        .then(oldVersion => {
             Vocab.updateMany(
-                {"playlist.playlist_id": id},
+                {"playlist.playlist_id": playlistId},
                 {$set: {
-                    "playlist.playlist_name": name,
-                    "playlist.order": order
+                    "playlist.order": newOrder
                 }},
-                {new: true})
+                {new: true}
+            ).then(docs => {
+                res.json({
+                    status: 'success',
+                    data: docs
+                })
+            })
+            .catch(err => {
+                res.json({
+                    status: 'error',
+                    data: err.message
+                })
+            })
+        })
+        .catch(err => {
+            res.json({
+                status: 'error',
+                data: err.message
+            })
+        })
+})
+
+// UPDATE PLAYLIST
+// (changes to:)
+//
+// name
+// isActive
+//
+router.patch('/', (req, res) => {
+    console.log('updating playlist');
+    console.log(req.body);
+    let newName = req.body.name;
+    let newStatus = req.body.isActive;
+    let playlistId = req.body._id;
+    Playlist.findByIdAndUpdate(
+        playlistId,
+        {
+            name: req.body.name,
+            isActive: req.body.isActive
+        },
+        {
+            new: false,
+            useFindAndModify: false
+        })
+        .then(oldVersion => {
+            let promiseList = [];
+            if (newName !== oldVersion.name) {
+                // update vocab entries with new playlist name
+                console.log('name has been updated');
+                let nameUpdate = Vocab.updateMany(
+                    {"playlist.playlist_id": playlistId},
+                    {$set: {
+                        "playlist.playlist_name": newName
+                    }},
+                    {new: true}
+                )
+                promiseList.push(nameUpdate);
+            }
+            if (newStatus !== oldVersion.isActive) {
+                // update vocab entries with new isActive status
+                let statusUpdate = Vocab.updateMany(
+                    {"playlist.playlist_id": playlistId},
+                    {$set: {
+                        "isActive": newStatus
+                    }},
+                    {new: true}
+                );
+                promiseList.push(statusUpdate);
+            }
+            Promise.all(promiseList)
                 .then(data => {
                     res.json({
                         status: 'success',
                         data: data
+                    })
+                })
+                .catch(err => {
+                    res.json({
+                        status: 'error',
+                        data: err.message
+                    })
+                })
+            // if (newName == oldVersion.name) {
+            //     // vocab entries for this playlist do not need to be updated
+            //     console.log('name has NOT been updated');
+            //     res.json({
+            //         status: 'success',
+            //         data: oldVersion
+            //     })
+            // } else {
+            //     // update vocab entries with new playlist name
+            //     console.log('name has been updated');
+            //     Vocab.updateMany(
+            //         {"playlist.playlist_id": playlistId},
+            //         {$set: {
+            //             "playlist.playlist_name": newName
+            //         }},
+            //         {new: true}
+            //     ).then(docs => {
+            //         res.json({
+            //             status: 'success',
+            //             data: docs
+            //         })
+            //     })
+            //     .catch(err => {
+            //         res.json({
+            //             status: 'error',
+            //             data: err.message
+            //         })
+            //     })
+            // }
+
+        })
+        .catch(err => {
+            res.json({
+                status: 'error',
+                data: err.message
+            })
+        })
+})
+
+// delete playlist
+router.delete('/id/:id', (req, res) => {
+    console.log('deleting playlist');
+    console.log(req.params);
+    let deleteId = req.params.id;
+    Vocab.updateMany({
+        'playlist.playlist_id': {
+            $eq: deleteId
+        }},
+        {
+            $set: {
+                "playlist.playlist_id": '',
+                "playlist.playlist_name": '',
+                "playlist.order": 999
+            }
+        })
+        .then(docs => {
+            Playlist.findByIdAndDelete(deleteId)
+                .then(docs => {
+                    res.json({
+                        status: 'success',
+                        data: docs
                     })
                 })
                 .catch(err => {
@@ -520,44 +461,44 @@ router.patch('/', (req, res) => {
 })
 
 // delete playlist
-router.delete('/id/:id', (req, res) => {
-    console.log('deleting playlist from memberships');
-    let deletedId = req.params.id;
-    console.log(deletedId);
-    let promiseList = [];
-    Vocab.updateMany({
-        'memberships': {
-            $elemMatch: {
-                'playlist_id': deletedId
-            }
-        }
-    },{
-        $pull: {
-            memberships: {playlist_id: deletedId}
-        }
-    })
-        .then(docs => {
-            Playlist.findByIdAndDelete(deletedId)
-                .then(result => {
-                    res.json({
-                        status: "success",
-                        data: result
-                    })
-                })
-                .catch(err => {
-                    res.json({
-                        status: "failure",
-                        data: err.message
-                    })
-                })
-        })
-        .catch(err => {
-            res.json({
-                status: "failure",
-                data: err.message
-            })
-        })
-})
+// router.delete('/id/:id', (req, res) => {
+//     console.log('deleting playlist from memberships');
+//     let deletedId = req.params.id;
+//     console.log(deletedId);
+//     let promiseList = [];
+//     Vocab.updateMany({
+//         'memberships': {
+//             $elemMatch: {
+//                 'playlist_id': deletedId
+//             }
+//         }
+//     },{
+//         $pull: {
+//             memberships: {playlist_id: deletedId}
+//         }
+//     })
+//         .then(docs => {
+//             Playlist.findByIdAndDelete(deletedId)
+//                 .then(result => {
+//                     res.json({
+//                         status: "success",
+//                         data: result
+//                     })
+//                 })
+//                 .catch(err => {
+//                     res.json({
+//                         status: "failure",
+//                         data: err.message
+//                     })
+//                 })
+//         })
+//         .catch(err => {
+//             res.json({
+//                 status: "failure",
+//                 data: err.message
+//             })
+//         })
+// })
 
 module.exports = router;
 

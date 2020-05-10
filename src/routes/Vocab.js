@@ -13,7 +13,8 @@ router.get('/random', (req, res) => {
     Vocab.aggregate([
         {$match: {
             mastered: false,
-            "playlist.playlist_id": { $nin: ['5e90354e7a025702a3538319', '']}
+            "playlist.playlist_id": { $nin: ['5e90354e7a025702a3538319', '']},
+            isActive: true
         }},
         {$sample: {size: limit}}
     ]
@@ -40,8 +41,17 @@ router.get('/', (req, res) => {
     let filter;
     let sort = [
         ["playlist.order", 1],
+        ["isActive", -1],
         ["lastPracticed", 1]
     ];
+    if (req.query.display) {
+        sort = [
+            ["playlist.order", 1],
+            ["isActive", -1],
+            ["mastered", 1],
+            ["lastPracticed", 1]
+        ]
+    }
     if (req.query.sorting && (req.query.sorting === 'new')) {
         sort[1][1] = -1;
     }
@@ -134,6 +144,10 @@ router.get('/', (req, res) => {
                 ["lastPracticed", 1]
             ];
         }
+    }
+
+    if (req.query.active) {
+        filter.isActive = true;
     }
 
     console.log("FILTER");
@@ -308,64 +322,38 @@ router.patch('/', (req, res) => {
                 data: err.message
             })
         })
-    // Vocab.findById(req.body._id)
-    //     .then(result => {
-    //         oMast = result.mastered;
-    //         nMast = req.body.mastered;
-    //         oPlay = result.playlist.playlist_id;
-    //         nPlay = req.body.playlist.playlist_id;
-    //         console.log(result);
-    //         console.log(req.body);
-    //         res.json({
-    //             status: 'success',
-    //             data: ''
-    //         })
-            // if (originalMastery != req.body.mastered) {
-            //     // playlist mastered count has been altered
-            //     Playlist.findById(req.body.playlist.playlist_id)
-            //         .then(p => {
-            //             if (req.body.mastered) {
-            //                 p.mastered++;
-            //             } else {
-            //                 p.mastered--;
-            //             }
-            //             p.save();
-            //             promisedList.push(p);
-            //         })
-            //         .catch(err => {
-            //             res.json({
-            //                 status: 'error',
-            //                 data: err.message
-            //             })
-            //         })
-            // }
-            // if (result.playlist.playlist_id != req.body.playlist.playlist_id) {
-            //     // playlist has been changed - update  info for past and future playlists
-            //     Playlist.findById(result.playlist.playlist_id)
-            //         .then(op => {
+})
 
-            //         })
-            //         .catch(err => {
-            //             res.json({
-            //                 status: 'error',
-            //                 data: err.message
-            //             })
-            //         })
-            // }
-        // })
-        // .catch(err => {
-        //     res.json({
-        //         status: 'error',
-        //         data: err.message
-        //     })
-        // })
-    // Vocab.findByIdAndUpdate(req.body._id, req.body, {new: true})
-    //     .then(word => {
-    //         res.json({status: 'success', data: word})
-    //     })
-    //     .catch(err => {
-    //         res.json({status: 'failure', data: err.message})
-    //     })
+// bulk isActive status update
+router.post('/status', (req, res) => {
+    console.log('bulk activity status update');
+    let vocabIds = req.body.vocabEntries;
+    let isActive = req.body.setActive;
+    if (vocabIds && (vocabIds.length > 0)) {
+        Vocab.updateMany(
+            {'_id': {$in: vocabIds}},
+            {$set: {
+                "isActive": isActive
+            }},
+            {new: true}
+        ).then(data => {
+            res.json({
+                status: 'success',
+                data: data
+            })
+        })
+        .catch(err => {
+            res.json({
+                status: 'error',
+                data: err.message
+            })
+        })
+    } else {
+        res.json({
+            status: 'error',
+            data: 'no ids in list'
+        })
+    }
 })
 
 // bulk playlist membership update
@@ -405,6 +393,11 @@ router.post('/playlists', (req, res) => {
                     data: err.message
                 })
             })
+    } else {
+        res.json({
+            status: 'error',
+            data: 'no ids in list'
+        })
     }
 })
 

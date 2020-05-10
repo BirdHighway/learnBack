@@ -54,6 +54,7 @@ const VocabSchema = new Schema({
     lastPracticedB: {type: Date, default: "1970-01-01T00:00:00.000Z"},
     everPracticedB: {type: Boolean, default: false},
     mastered: {type: Boolean, default: false},
+    isActive: {type: Boolean, default: true},
     dialect: {type: String, default: '', trim: true},
     source: {type: String, default: '', trim: true},
     tags: [String],

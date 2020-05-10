@@ -8,7 +8,8 @@ const connection = mongoose.connect(process.env.CONSTRING,
 const PlaylistSchema = new Schema({
     created: {type: Date, default: Date.now},
     name: {type: String, default: '', trim: true},
-    order: {type: Number, default: 999}
+    order: {type: Number, default: 999},
+    isActive: {type: Boolean, default: true}
 })
 
 module.exports = mongoose.model('Playlist', PlaylistSchema);

@@ -29,12 +29,35 @@ router.get('/collections', (req, res) => {
                 ]
             }
         }
+    } else if (collectionType === 'study2') {
+        filter = {
+            status: {
+                $eq: 'study2'
+            }
+        }
     } else if (collectionType === 'by-status') {
         let status = req.query.status;
         filter = {
             status: {
                 $eq: status
             }
+        }
+    } else if (collectionType === 'unready') {
+        filter = {
+            status: {
+                $eq: 'new'
+            }
+        }
+    } else if (collectionType === 'study-both') {
+        filter = {
+            $or: [
+                { status: {
+                    $eq: 'study'
+                }},
+                { status: {
+                    $eq: 'study2'
+                }}
+            ]
         }
     }
     VerbSet.find(filter)
@@ -97,6 +120,13 @@ router.get('/', (req, res) => {
         if (req.query.sortPracticed == 'true') {
             sort = [
                 ["lastPracticed", 1]
+            ]
+        }
+    }
+    if (req.query.sortGroup) {
+        if (req.query.sortGroup == 'true') {
+            sort = [
+                ["status", 1]
             ]
         }
     }
